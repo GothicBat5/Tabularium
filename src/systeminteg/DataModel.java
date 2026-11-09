@@ -35,6 +35,13 @@ public class DataModel
         dataListeners.add(listener);
     }
 
+    public void newSheet(String... columnNames)
+    {
+        rows.clear();
+        columns.setAll(columnNames);
+        fireStructure();
+    }
+
     public void addColumn(String name)
     {
         columns.add(name);
@@ -49,7 +56,7 @@ public class DataModel
 
     public void removeColumn(int index)
     {
-        if (columns.size() <= 1)
+        if (columns.size() <= 1 || !isValidColumn(index))
         {
             return;
         }
@@ -66,6 +73,11 @@ public class DataModel
 
     public void renameColumn(int index, String name)
     {
+        if (!isValidColumn(index))
+        {
+            return;
+        }
+
         columns.set(index, name);
         fireStructure();
     }
@@ -85,13 +97,23 @@ public class DataModel
 
     public void removeRow(int index)
     {
+        if (!isValidRow(index))
+        {
+            return;
+        }
+
         rows.remove(index);
         fireData();
     }
 
     public void setCell(int row, int column, String value)
     {
-        rows.get(row).set(column, value);
+        if (!isValidRow(row) || !isValidColumn(column))
+        {
+            return;
+        }
+
+        rows.get(row).set(column, value == null ? "" : value);
         fireData();
     }
 
@@ -127,11 +149,23 @@ public class DataModel
         return totals;
     }
 
+    private boolean isValidRow(int index)
+    {
+        return index >= 0 && index < rows.size();
+    }
+
+    private boolean isValidColumn(int index)
+    {
+        return index >= 0 && index < columns.size();
+    }
+
     private double parseNumber(String text)
     {
-        try
-        {
-            return Double.parseDouble(text.trim());
+        String cleaned = text.trim().replace(",", "");
+
+        try {
+            double value = Double.parseDouble(cleaned);
+            return Double.isFinite(value) ? value : 0;
         }
         catch (NumberFormatException e)
         {
