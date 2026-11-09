@@ -2,6 +2,7 @@ package systeminteg;
 
 import java.util.Map;
 import javafx.application.Application;
+import javafx.collections.FXCollections;
 import javafx.scene.Scene;
 import javafx.scene.chart.*;
 import javafx.scene.control.*;
@@ -14,7 +15,9 @@ public class Main extends Application
 {
     private final DataModel model = new DataModel();
 
-    private final BarChart<String, Number> barChart = new BarChart<>(new CategoryAxis(), new NumberAxis());
+    private final CategoryAxis xAxis = new CategoryAxis();
+    private final NumberAxis yAxis = new NumberAxis();
+    private final BarChart<String, Number> barChart = new BarChart<>(xAxis, yAxis);
 
     private final PieChart pieChart = new PieChart();
     private final Label totalLabel = new Label();
@@ -30,6 +33,8 @@ public class Main extends Application
     {
         loadSampleData();
 
+        xAxis.setAutoRanging(false);
+
         barChart.setTitle("Data Overview");
         barChart.setLegendVisible(false);
         barChart.setAnimated(false);
@@ -42,7 +47,11 @@ public class Main extends Application
         totalLabel.setStyle("-fx-font-size: 22px;" +
             "-fx-font-weight: bold;" + "-fx-text-fill: #2563eb;");
 
+        Button newButton = new Button("New");
+        newButton.setOnAction(e -> createNewSheet());
+
         HBox controls = new HBox(10,
+            newButton,
             new Label("Label:"), labelBox,
             new Label("Value:"), valueBox,
             new Label("Group:"), groupBox);
@@ -103,6 +112,45 @@ public class Main extends Application
         }
     }
 
+    private void createNewSheet()
+    {
+        if (!model.getRows().isEmpty())
+        {
+            Alert alert = new Alert(
+                Alert.AlertType.CONFIRMATION,
+                "Discard the current data and start a blank sheet?",
+                ButtonType.OK,
+                ButtonType.CANCEL);
+
+            alert.setTitle("New Sheet");
+            alert.setHeaderText(null);
+
+            boolean confirmed = alert.showAndWait()
+                .filter(button -> button == ButtonType.OK)
+                .isPresent();
+
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
+        clearBoxSelections();
+        model.newSheet("Name", "Category", "Quantity");
+        model.addRow();
+    }
+
+    private void clearBoxSelections()
+    {
+        updatingBoxes = true;
+
+        labelBox.getSelectionModel().clearSelection();
+        valueBox.getSelectionModel().clearSelection();
+        groupBox.getSelectionModel().clearSelection();
+
+        updatingBoxes = false;
+    }
+
     private void refreshBoxes()
     {
         updatingBoxes = true;
@@ -146,26 +194,43 @@ public class Main extends Application
             return;
         }
 
+        Map<String, Double> barTotals = model.getGroupTotals(labelCol, valueCol);
+        Map<String, Double> pieTotals = model.getGroupTotals(groupCol, valueCol);
+        double total = model.getTotal(valueCol);
+
+        updateBarChart(barTotals);
+        updatePieChart(pieTotals);
+
+        totalLabel.setText("Total " + valueBox.getValue() + ": " + format(total));
+    }
+
+    private void updateBarChart(Map<String, Double> totals)
+    {
         XYChart.Series<String, Number> series = new XYChart.Series<>();
 
-        for (Map.Entry<String, Double> entry : model.getGroupTotals(labelCol, valueCol).entrySet())
+        for (Map.Entry<String, Double> entry : totals.entrySet())
         {
             series.getData().add(new XYChart.Data<>(entry.getKey(), entry.getValue()));
         }
 
         barChart.getData().clear();
+        xAxis.setCategories(FXCollections.observableArrayList(totals.keySet()));
+        xAxis.setLabel(labelBox.getValue());
+        yAxis.setLabel(valueBox.getValue());
         barChart.getData().add(series);
-        barChart.getXAxis().setLabel(labelBox.getValue());
-        barChart.getYAxis().setLabel(valueBox.getValue());
+    }
 
+    private void updatePieChart(Map<String, Double> totals)
+    {
         pieChart.getData().clear();
 
-        for (Map.Entry<String, Double> entry : model.getGroupTotals(groupCol, valueCol).entrySet())
+        for (Map.Entry<String, Double> entry : totals.entrySet())
         {
-            pieChart.getData().add(new PieChart.Data(entry.getKey(), entry.getValue()));
+            if (entry.getValue() > 0)
+            {
+                pieChart.getData().add(new PieChart.Data(entry.getKey(), entry.getValue()));
+            }
         }
-
-        totalLabel.setText("Total " + valueBox.getValue() + ": " + format(model.getTotal(valueCol)));
     }
 
     private String format(double value)
