@@ -2,9 +2,8 @@ package systeminteg;
 
 import java.util.Map;
 import javafx.application.Application;
-import javafx.collections.FXCollections;
 import javafx.scene.Scene;
-import javafx.scene.chart.*;
+import javafx.scene.chart.PieChart;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.geometry.Insets;
@@ -15,13 +14,11 @@ public class Main extends Application
 {
     private final DataModel model = new DataModel();
 
-    private final CategoryAxis xAxis = new CategoryAxis();
-    private final NumberAxis yAxis = new NumberAxis();
-    private final BarChart<String, Number> barChart = new BarChart<>(xAxis, yAxis);
-
+    private final ChartPanel chartPanel = new ChartPanel();
     private final PieChart pieChart = new PieChart();
     private final Label totalLabel = new Label();
 
+    private final ComboBox<ChartPanel.Type> typeBox = new ComboBox<>();
     private final ComboBox<String> labelBox = new ComboBox<>();
     private final ComboBox<String> valueBox = new ComboBox<>();
     private final ComboBox<String> groupBox = new ComboBox<>();
@@ -33,19 +30,22 @@ public class Main extends Application
     {
         loadSampleData();
 
-        xAxis.setAutoRanging(false);
-
-        barChart.setTitle("Data Overview");
-        barChart.setLegendVisible(false);
-        barChart.setAnimated(false);
-        barChart.setPrefHeight(320);
-
         pieChart.setTitle("Distribution");
         pieChart.setAnimated(false);
         pieChart.setPrefHeight(300);
 
         totalLabel.setStyle("-fx-font-size: 22px;" +
             "-fx-font-weight: bold;" + "-fx-text-fill: #2563eb;");
+
+        typeBox.getItems().setAll(ChartPanel.Type.values());
+        typeBox.getSelectionModel().select(ChartPanel.Type.BAR);
+        typeBox.setOnAction(e -> changeChartType());
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox header = new HBox(10, totalLabel, spacer, new Label("Chart:"), typeBox);
+        header.setAlignment(Pos.CENTER_LEFT);
 
         Button newButton = new Button("New");
         newButton.setOnAction(e -> createNewSheet());
@@ -65,7 +65,7 @@ public class Main extends Application
         EditorPanel editor = new EditorPanel(model);
         VBox.setVgrow(editor, Priority.ALWAYS);
 
-        VBox leftPanel = new VBox(15, totalLabel, controls, barChart, editor);
+        VBox leftPanel = new VBox(15, header, controls, chartPanel, editor);
         VBox rightPanel = new VBox(15, pieChart);
 
         leftPanel.setPrefWidth(650);
@@ -109,6 +109,16 @@ public class Main extends Application
         for (int i = 0; i < products.length; i++)
         {
             model.addRow(products[i], categories[i], String.valueOf(quantities[i]));
+        }
+    }
+
+    private void changeChartType()
+    {
+        ChartPanel.Type type = typeBox.getValue();
+
+        if (type != null)
+        {
+            chartPanel.setType(type);
         }
     }
 
@@ -173,7 +183,8 @@ public class Main extends Application
         {
             box.getSelectionModel().select(previous);
         }
-        else {
+        else
+        {
             box.getSelectionModel().select(Math.min(defaultIndex, size - 1));
         }
     }
@@ -198,26 +209,10 @@ public class Main extends Application
         Map<String, Double> pieTotals = model.getGroupTotals(groupCol, valueCol);
         double total = model.getTotal(valueCol);
 
-        updateBarChart(barTotals);
+        chartPanel.update(barTotals, labelBox.getValue(), valueBox.getValue());
         updatePieChart(pieTotals);
 
         totalLabel.setText("Total " + valueBox.getValue() + ": " + format(total));
-    }
-
-    private void updateBarChart(Map<String, Double> totals)
-    {
-        XYChart.Series<String, Number> series = new XYChart.Series<>();
-
-        for (Map.Entry<String, Double> entry : totals.entrySet())
-        {
-            series.getData().add(new XYChart.Data<>(entry.getKey(), entry.getValue()));
-        }
-
-        barChart.getData().clear();
-        xAxis.setCategories(FXCollections.observableArrayList(totals.keySet()));
-        xAxis.setLabel(labelBox.getValue());
-        yAxis.setLabel(valueBox.getValue());
-        barChart.getData().add(series);
     }
 
     private void updatePieChart(Map<String, Double> totals)
