@@ -111,8 +111,7 @@ public class EditorPanel extends VBox
 
         column.setCellFactory(c -> new EditCell());
 
-        column.setOnEditCommit(event ->
-        {
+        column.setOnEditCommit(event -> {
             int row = event.getTablePosition().getRow();
             model.setCell(row, index, event.getNewValue());
         });
@@ -197,8 +196,7 @@ public class EditorPanel extends VBox
                 setText(null);
                 setGraphic(field);
             }
-            else
-            {
+            else {
                 setText(item);
                 setGraphic(null);
             }
